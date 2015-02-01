@@ -25,4 +25,10 @@ when "redhat","centos"
   default['gluster']['client']['package'] = [ "glusterfs", "glusterfs-fuse" ]
 end
 
-default['gluster']['client']['volumes'] = []
+#default['gluster']['client']['volumes'] = {
+#  'vol1' => {
+#    "server" => 'rhedfs1',
+#    "mount_point" => '/gluster/vol1',
+#    "fstype" => 'nfs' # default is glusterfs
+#  }
+#}

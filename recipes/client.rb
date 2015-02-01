@@ -44,7 +44,11 @@ node["gluster"]['client']["volumes"].each do |volume_name, volume_values|
     # Mount the partition and add to /etc/fstab
     mount volume_values['mount_point'] do
       device "#{volume_values['server']}:/#{volume_name}"
-      fstype "glusterfs"
+      if volume_values['fstype'].empty?
+        fstyp "glusterfs"
+      else 
+        fstype "#{volume_values['fstype']}"
+      end
       options "defaults,_netdev"
       pass 0
       action [:mount, :enable]
