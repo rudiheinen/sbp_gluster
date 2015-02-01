@@ -17,7 +17,9 @@
 # limitations under the License.
 #
 
-include_recipe "gluster::repository"
+if node['gluster']['community'] = true
+  include_recipe "gluster::repository"
+end
 
 # Install dependencies
 node['gluster']['server']['dependencies'].each do |d|
