@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-if node['gluster']['community'] = "true"
+if node['gluster']['community'] == true
   include_recipe "gluster::repository"
 end
 
