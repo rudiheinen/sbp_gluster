@@ -2,7 +2,7 @@
 # Cookbook Name:: gluster
 # Attributes:: server
 #
-# Copyright 2013, Biola University
+# Copyright 2015, Biola University, Schuberg Philis
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ case node['platform']
 when "ubuntu"
   default['gluster']['server']['package'] = "glusterfs-server"
 when "redhat","centos"
-  default['gluster']['server']['package'] = "glusterfs-server"
+  default['gluster']['server']['package'] = [ "glusterfs-server" , "glusterfs-geo-replication" ] 
 end
 
 # Package dependencies

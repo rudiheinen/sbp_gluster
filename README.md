@@ -1,5 +1,7 @@
 gluster Cookbook
 ================
+This is a fork from https://github.com/biola/chef-cookbooks/tree/master/gluster.
+
 This cookbook is used to install and configure Gluster on both servers and clients. This cookbook makes several assumptions when configuring Gluster servers:
 
 1. If using the cookbook to format disks, each disk will contain a single partition dedicated for Gluster
@@ -8,7 +10,7 @@ This cookbook is used to install and configure Gluster on both servers and clien
 
 Requirements
 ------------
-This cookbook has been tested on Ubuntu 12.04 and CentOS 6.5.
+This cookbook has been tested on Ubuntu 12.04 and CentOS / RHEL 6.5, CentOS / RHEL 7.0
 
 Attributes
 ----------

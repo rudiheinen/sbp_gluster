@@ -2,7 +2,7 @@
 # Cookbook Name:: gluster
 # Recipe:: repository
 #
-# Copyright 2013, Biola University
+# Copyright 2015, Biola University, Schuberg Philis
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,22 +17,26 @@
 # limitations under the License.
 #
 
+version = node['gluster']['version']
+
 case node['platform']
 when "ubuntu"
-  apt_repository "ubuntu-glusterfs-3.4" do
-    uri "http://ppa.launchpad.net/semiosis/ubuntu-glusterfs-3.4/ubuntu"
+  apt_repository "ubuntu-glusterfs-#{version}" do
+    uri "http://ppa.launchpad.net/semiosis/ubuntu-glusterfs-#{version}/ubuntu"
     distribution node['lsb']['codename']
     components ["main"]
     keyserver "keyserver.ubuntu.com"
     key "774BAC4D"
     deb_src true
     not_if do
-      File.exists?("/etc/apt/sources.list.d/ubuntu-glusterfs-3.4.list")
+      File.exists?("/etc/apt/sources.list.d/ubuntu-glusterfs-#{version}.list")
     end
   end
 when "redhat", "centos"
-  yum_repository "glusterfs" do
-    url "http://download.gluster.org/pub/gluster/glusterfs/3.4/LATEST/EPEL.repo/epel-$releasever/$basearch/"
+  yum_repository "glusterfs-epel" do
+    description 'GlusterFS is a clustered file-system capable of scaling to several petabytes.'
+    baseurl "http://download.gluster.org/pub/gluster/glusterfs/#{version}/LATEST/EPEL.repo/epel-$releasever/$basearch/"
+    gpgkey "http://download.gluster.org/pub/gluster/glusterfs/#{version}/LATEST/EPEL.repo/pub.key"
     action :create
   end
 end

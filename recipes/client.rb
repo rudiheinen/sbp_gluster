@@ -2,7 +2,7 @@
 # Cookbook Name:: gluster
 # Recipe:: client
 #
-# Copyright 2013, Biola University
+# Copyright 2015, Biola University, Schuberg Philis
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,14 @@
 include_recipe "gluster::repository"
 
 # Install the client package
-package node['gluster']['client']['package']
+case node['platform']
+when "ubuntu"
+  package node['gluster']['client']['package']
+when "redhat", "centos"
+  node['gluster']['client']['package'].each do |p|
+    package p
+  end
+end
 
 # Mount any configured volumes
 node["gluster"]['client']["volumes"].each do |volume_name, volume_values|

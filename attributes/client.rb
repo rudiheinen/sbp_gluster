@@ -2,7 +2,7 @@
 # Cookbook Name:: gluster
 # Attributes:: client
 #
-# Copyright 2013, Biola University
+# Copyright 2015, Biola University, Schuberg Philis
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ case node['platform']
 when "ubuntu"
   default['gluster']['client']['package'] = "glusterfs-client"
 when "redhat","centos"
-  default['gluster']['client']['package'] = "glusterfs"
+  default['gluster']['client']['package'] = [ "glusterfs", "glusterfs-fuse" ]
 end
 
 default['gluster']['client']['volumes'] = []

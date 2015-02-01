@@ -2,7 +2,7 @@
 # Cookbook Name:: gluster
 # Recipe:: server
 #
-# Copyright 2013, Biola University
+# Copyright 2015, Biola University, Schuberg Philis
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,9 +25,23 @@ node['gluster']['server']['dependencies'].each do |d|
 end
 
 # Install the server package
-package node['gluster']['server']['package']
+case node['platform']
+when "ubuntu"
+  package node['gluster']['server']['package']
+when "redhat", "centos"
+  node['gluster']['server']['package'].each do |p|
+    package p
+  end
+end
 
 # Make sure the service is started
+case node['platform']
+when "redhat","centos"
+  service "glusterfsd" do
+    action [:enable]
+  end
+end
+
 service "glusterd" do
   action [:enable, :start]
 end
@@ -69,7 +83,7 @@ end
 bricks = Array.new
 node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   # If the node is configured as a peer for the volume, create directories to use as bricks
-  if volume_values['peers'].include? node['fqdn']
+  if volume_values['peers'].include? node['hostname']
     # If using LVM
     if volume_values.attribute?('lvm_volumes') || node['gluster']['server'].attribute?('lvm_volumes')
       # Use either configured LVM volumes or default LVM volumes
@@ -90,99 +104,104 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
         bricks << "#{node['gluster']['server']['brick_mount_path']}/#{d}1/#{volume_name}"
       end
     end
+    # Save the array of bricks to the node's attributes
+    node.set['gluster']['server']['bricks'] = bricks
   end
 
   # Only continue if the node is the first peer in the array
-  if volume_values['peers'].first == node['fqdn']
+  if volume_values['peers'].first == node['hostname']
     # Configure the trusted pool if needed
     volume_values['peers'].each do |peer|
-      unless peer == node['fqdn']
+      unless peer == node['hostname']
         execute "gluster peer probe #{peer}" do
           action :run
           not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
         end
       end
     end
+  end
 
-    # Create the volume if it doesn't exist
-    unless File.exists?("/var/lib/glusterd/vols/#{volume_name}/info")
-      # Create a hash of peers and their bricks
-      volume_bricks = {}
-      brick_count = 0
-      volume_values['peers'].each do |peer|
-        chef_node = Chef::Node.find_or_create(peer)
-        if chef_node['gluster']['server']['bricks']
-          peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
-          volume_bricks[peer] = peer_bricks
-          brick_count += (peer_bricks.count || 0)
-        end rescue NoMethodError
+  # Create the volume if it doesn't exist
+  unless Dir.exists?("/var/lib/glusterd/vols/#{volume_name}")
+    # Create a hash of peers and their bricks
+    volume_bricks = {}
+    brick_count = 0
+    volume_values['peers'].each do |peer|
+      chef_node = Chef::Node.find_or_create(peer)
+      if chef_node['gluster']['server']['bricks']
+        peer_bricks = chef_node['gluster']['server']['bricks'].select { |brick| brick.include? volume_name }
+        volume_bricks[peer] = peer_bricks
+        brick_count += (peer_bricks.count || 0)
+      end rescue NoMethodError
+    end
+
+    # Create option string
+    options = String.new
+    case volume_values['volume_type']
+    when "replicated"
+      # Ensure the trusted pool has the correct number of bricks available
+      unless brick_count == volume_values['replica_count']
+        Chef::Log.warn("Correct number of bricks not available for volume #{volume_name}. Skipping...")
+        next
+      else
+        options = "replica #{volume_values['replica_count']}"
+        volume_bricks.each do |peer, bricks|
+          options << " #{peer}:#{bricks.first}"
+        end
       end
-
-      # Create option string
-      options = String.new
-      case volume_values['volume_type']
-      when "replicated"
-        # Ensure the trusted pool has the correct number of bricks available
-        unless brick_count == volume_values['replica_count']
-          Chef::Log.warn("Correct number of bricks not available for volume #{volume_name}. Skipping...")
-          next
-        else
-          options = "replica #{volume_values['replica_count']}"
+    when "distributed-replicated"
+      # Ensure the trusted pool has the correct number of bricks available
+      unless brick_count == (volume_values['replica_count'] * volume_values['peers'].count)
+        Chef::Log.warn("Correct number of bricks not available for volume #{volume_name}. Skipping...")
+        next
+      else
+        options = "replica #{volume_values['replica_count']}"
+        for i in 1..volume_values['replica_count']
           volume_bricks.each do |peer, bricks|
-            options << " #{peer}:#{bricks.first}"
+            options << " #{peer}:#{bricks[i-1]}"
           end
         end
-      when "distributed-replicated"
-        # Ensure the trusted pool has the correct number of bricks available
-        unless brick_count == (volume_values['replica_count'] * volume_values['peers'].count)
-          Chef::Log.warn("Correct number of bricks not available for volume #{volume_name}. Skipping...")
-          next
-        else
-          options = "replica #{volume_values['replica_count']}"
-          for i in 1..volume_values['replica_count']
-            volume_bricks.each do |peer, bricks|
-              options << " #{peer}:#{bricks[i-1]}"
-            end
-          end
-        end
-      end
-      
-      execute "gluster volume create #{volume_name} #{options}" do
-        action :run
       end
     end
 
-    # Start the volume
-    execute "gluster volume start #{volume_name}" do
+    execute "gluster volume create #{volume_name} #{options}" do
+        action :run
+    end
+  end
+
+  # Start the volume
+  execute "gluster volume start #{volume_name}" do
+    action :run
+    not_if { `gluster volume info #{volume_name} | grep Status`.include? 'Started' }
+  end
+
+  # Restrict access to the volume if configured
+  if volume_values['allowed_hosts']
+    allowed_hosts = volume_values['allowed_hosts'].join(',')
+    execute "gluster volume set #{volume_name} auth.allow #{allowed_hosts}" do
       action :run
-      not_if { `gluster volume info #{volume_name} | grep Status`.include? 'Started' }
+      not_if "egrep '^auth.allow=#{allowed_hosts}$' /var/lib/glusterd/vols/#{volume_name}/info"
+    end
+  end
+
+  # Configure volume quote if configured
+  if volume_values['quota']
+    # Enable quota
+    execute "gluster volume quota #{volume_name} enable" do
+      action :run
+      not_if "egrep '^features.quota=on$' /var/lib/glusterd/vols/#{volume_name}/info"
     end
 
-    # Restrict access to the volume if configured
-    if volume_values['allowed_hosts']
-      allowed_hosts = volume_values['allowed_hosts'].join(',')
-      execute "gluster volume set #{volume_name} auth.allow #{allowed_hosts}" do
-        action :run
-        not_if "egrep '^auth.allow=#{allowed_hosts}$' /var/lib/glusterd/vols/#{volume_name}/info"
-      end
-    end
-
-    # Configure volume quote if configured
-    if volume_values['quota']
-      # Enable quota
-      execute "gluster volume quota #{volume_name} enable" do
-        action :run
-        not_if "egrep '^features.quota=on$' /var/lib/glusterd/vols/#{volume_name}/info"
-      end
-
-      # Configure quota for the root of the volume
-      execute "gluster volume quota #{volume_name} limit-usage / #{volume_values['quota']}" do
-        action :run
-        not_if "egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info"
-      end      
-    end
+    # Configure quota for the root of the volume
+    execute "gluster volume quota #{volume_name} limit-usage / #{volume_values['quota']}" do
+      action :run
+      not_if "egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info"
+    end      
   end
 end
 
-# Save the array of bricks to the node's attributes
-node.set['gluster']['server']['bricks'] = bricks
+if (`gluster volume info | grep Status`.include? 'Started') 
+  service "glusterfsd" do
+    action [:start]
+  end  
+end
