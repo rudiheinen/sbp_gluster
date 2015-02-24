@@ -21,22 +21,22 @@ version = node['gluster']['version']
 
 case node['platform']
 when "ubuntu"
-  apt_repository "ubuntu-glusterfs-#{version}" do
-    uri "http://ppa.launchpad.net/semiosis/ubuntu-glusterfs-#{version}/ubuntu"
+  apt_repository "ubuntu-glusterfs-#{version[0..2]}" do
+    uri "http://ppa.launchpad.net/semiosis/ubuntu-glusterfs-#{version[0..2]}/ubuntu"
     distribution node['lsb']['codename']
     components ["main"]
     keyserver "keyserver.ubuntu.com"
     key "774BAC4D"
     deb_src true
     not_if do
-      File.exists?("/etc/apt/sources.list.d/ubuntu-glusterfs-#{version}.list")
+      File.exists?("/etc/apt/sources.list.d/ubuntu-glusterfs-#{version[0..2]}.list")
     end
   end
 when "redhat", "centos"
   yum_repository "glusterfs-epel" do
     description 'GlusterFS is a clustered file-system capable of scaling to several petabytes.'
-    baseurl "http://download.gluster.org/pub/gluster/glusterfs/#{version}/LATEST/EPEL.repo/epel-$releasever/$basearch/"
-    gpgkey "http://download.gluster.org/pub/gluster/glusterfs/#{version}/LATEST/EPEL.repo/pub.key"
+    baseurl "http://download.gluster.org/pub/gluster/glusterfs/#{version[0..2]}/#{version}/EPEL.repo/epel-$releasever/$basearch/"
+    gpgkey "http://download.gluster.org/pub/gluster/glusterfs/#{version[0..2]}/#{version}/EPEL.repo/pub.key"
     action :create
   end
 end
