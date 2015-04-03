@@ -17,7 +17,10 @@
 # limitations under the License.
 #
 
-include_recipe "gluster::repository"
+if node['gluster']['repo'] == "public"
+  include_recipe "gluster::repository"
+end
+version = "#{node['gluster']['version']}-#{node['gluster']['build']}"
 
 # Install dependencies
 node['gluster']['server']['dependencies'].each do |d|
@@ -27,10 +30,14 @@ end
 # Install the server package
 case node['platform']
 when "ubuntu"
-  package node['gluster']['server']['package']
+  package node['gluster']['server']['package'] do
+    version "#{version}"
+  end
 when "redhat", "centos"
   node['gluster']['server']['package'].each do |p|
-    package p
+    package p do
+      version "#{version}"
+    end
   end
 end
 
@@ -196,7 +203,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
     execute "gluster volume quota #{volume_name} limit-usage / #{volume_values['quota']}" do
       action :run
       not_if "egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info"
-    end      
+    end
   end
 end
 

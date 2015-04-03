@@ -15,17 +15,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-include_recipe "gluster::repository"
+
+if node['gluster']['repo'] == "public"
+  include_recipe "gluster::repository"
+end
+version = "#{node['gluster']['version']}-#{node['gluster']['build']}"
 
 # Install the client package
 case node['platform']
 when "ubuntu"
-  package node['gluster']['client']['package']
+  package node['gluster']['client']['package'] do
+    version "#{version}"
+  end
 when "redhat", "centos"
   node['gluster']['client']['package'].each do |p|
-    package p
+    package p do
+      version "#{version}"
+    end
   end
 end
 
@@ -44,7 +51,7 @@ node["gluster"]['client']["volumes"].each do |volume_name, volume_values|
     # Mount the partition and add to /etc/fstab
     mount volume_values['mount_point'] do
       device "#{volume_values['server']}:/#{volume_name}"
-      if volume_values['fstype'].empty?
+      if volume_values['fstype'].nil?
         fstyp "glusterfs"
       else 
         fstype "#{volume_values['fstype']}"

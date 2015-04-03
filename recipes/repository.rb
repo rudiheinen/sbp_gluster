@@ -19,6 +19,7 @@
 
 version = node['gluster']['version']
 
+
 case node['platform']
 when "ubuntu"
   apt_repository "ubuntu-glusterfs-#{version[0..2]}" do

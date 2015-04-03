@@ -26,12 +26,7 @@ when "redhat","centos"
 end
 
 # Package dependencies
-case node['platform']
-when "ubuntu"
-  default['gluster']['server']['dependencies'] = [ "xfsprogs" ]
-when "redhat","centos"
-  default['gluster']['server']['dependencies'] = [ "xfsprogs" ]
-end
+default['gluster']['server']['dependencies'] = [ "xfsprogs", "bc" ]
 
 # Default path to use for mounting bricks
 default['gluster']['server']['brick_mount_path'] = '/gluster'
