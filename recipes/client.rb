@@ -24,14 +24,14 @@ version = "#{node['gluster']['version']}-#{node['gluster']['build']}"
 
 # Install the client package
 case node['platform']
-when "ubuntu"
+when "debian"
   package node['gluster']['client']['package'] do
-    version "#{version}"
+    version version
   end
 when "redhat", "centos"
   node['gluster']['client']['package'].each do |p|
     package p do
-      version "#{version}"
+      version version
     end
   end
 end
@@ -47,13 +47,13 @@ node["gluster"]['client']["volumes"].each do |volume_name, volume_values|
       recursive true
       action :create
     end
-    
+
     # Mount the partition and add to /etc/fstab
     mount volume_values['mount_point'] do
       device "#{volume_values['server']}:/#{volume_name}"
       if volume_values['fstype'].nil?
         fstyp "glusterfs"
-      else 
+      else
         fstype "#{volume_values['fstype']}"
       end
       options "defaults,_netdev"

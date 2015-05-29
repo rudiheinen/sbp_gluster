@@ -1,4 +1,4 @@
-gluster Cookbook
+sbp_gluster Cookbook
 ================
 This is a fork from https://github.com/biola/chef-cookbooks/tree/master/gluster.
 

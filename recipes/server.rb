@@ -29,14 +29,14 @@ end
 
 # Install the server package
 case node['platform']
-when "ubuntu"
+when "debian"
   package node['gluster']['server']['package'] do
-    version "#{version}"
+    version version
   end
 when "redhat", "centos"
   node['gluster']['server']['package'].each do |p|
     package p do
-      version "#{version}"
+      version version
     end
   end
 end
@@ -57,13 +57,16 @@ end
 if node['gluster']['server'].attribute?('disks')
   node['gluster']['server']['disks'].each do |d|
     # If a partition doesn't exist, create it
-    if `fdisk -l 2> /dev/null | grep '/dev/#{d}1'`.empty?
+    cmd = Mixlib::ShellOut.new("fdisk -l 2> /dev/null | grep '/dev/#{d}1'")
+    cmd.run_command
+    fdisk = cmd.stdout
+    if fdisk.empty?
       # Pass commands to fdisk to create a new partition
       bash "create partition" do
         code "(echo n; echo p; echo 1; echo; echo; echo w) | fdisk /dev/#{d}"
         action :run
       end
-      
+
       # Format the new partition
       execute "format partition" do
         command "mkfs.xfs -i size=512 /dev/#{d}1"
@@ -177,38 +180,54 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   end
 
   # Start the volume
+
+  cmd = Mixlib::ShellOut.new("gluster volume info #{volume_name} | grep Status")
+  cmd.run_command
+  volstatus = cmd.stdout
   execute "gluster volume start #{volume_name}" do
     action :run
-    not_if { `gluster volume info #{volume_name} | grep Status`.include? 'Started' }
+    not_if { volstatus.include? 'Started' }
   end
 
   # Restrict access to the volume if configured
   if volume_values['allowed_hosts']
     allowed_hosts = volume_values['allowed_hosts'].join(',')
+    cmd = Mixlib::ShellOut.new("egrep '^auth.allow=#{allowed_hosts}$' /var/lib/glusterd/vols/#{volume_name}/info")
+    cmd.run_command
+    volallow = cmd.stdout
     execute "gluster volume set #{volume_name} auth.allow #{allowed_hosts}" do
       action :run
-      not_if "egrep '^auth.allow=#{allowed_hosts}$' /var/lib/glusterd/vols/#{volume_name}/info"
+      only_if { volallow.empty? }
     end
   end
 
   # Configure volume quote if configured
   if volume_values['quota']
     # Enable quota
+    cmd = Mixlib::ShellOut.new("egrep '^features.quota=on$' /var/lib/glusterd/vols/#{volume_name}/info")
+    cmd.run_command
+    volquota = cmd.stdout
     execute "gluster volume quota #{volume_name} enable" do
       action :run
-      not_if "egrep '^features.quota=on$' /var/lib/glusterd/vols/#{volume_name}/info"
+      only_if { volquota.empty? }
     end
 
     # Configure quota for the root of the volume
+    cmd = Mixlib::ShellOut.new("egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info")
+    cmd.run_command
+    vollimit = cmd.stdout
     execute "gluster volume quota #{volume_name} limit-usage / #{volume_values['quota']}" do
       action :run
-      not_if "egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info"
+      only_if { vollimit.empty? }
     end
   end
 end
 
-if (`gluster volume info | grep Status`.include? 'Started') 
+cmd = Mixlib::ShellOut.new("gluster volume info | grep Status")
+cmd.run_command
+volinfo = cmd.stdout
+if (volinfo.include? 'Started') 
   service "glusterfsd" do
     action [:start]
-  end  
+  end
 end
